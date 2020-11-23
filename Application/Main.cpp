@@ -1,17 +1,17 @@
 #include "pch.h"
 
-#include <glad\glad.h>
+#include "Engine/Engine.h"
 
-#include "Engine/Graphics/Renderer.h"
-#include "Engine\Graphics\Program.h"
-#include "Engine/Graphics/Texture.h"
 
 int main(int argc, char** argv)
 {
+	nc::Engine engine;
+	engine.Startup();
 
-	nc::Renderer renderer;
-	renderer.Startup();
-	renderer.Create("OpenGL", 800, 600);
+
+	//nc::Renderer renderer;
+	//renderer.Startup();
+	//renderer.Create("OpenGL", 800, 600);
 
 
 	/*int result = SDL_Init(SDL_INIT_VIDEO);
@@ -67,6 +67,7 @@ int main(int argc, char** argv)
 	nc::Program program;
 	program.CreateShaderFromFile("shaders\\basic.vert", GL_VERTEX_SHADER);
 	program.CreateShaderFromFile("shaders\\basic.frag", GL_FRAGMENT_SHADER);
+
 	program.Link();
 	program.Use();
 
@@ -85,9 +86,7 @@ int main(int argc, char** argv)
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
-	//// set color pipeline (vertex attribute)
-	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-	//glEnableVertexAttribArray(1);
+
 
 	// create index buffers
 	GLuint ibo;
@@ -97,11 +96,13 @@ int main(int argc, char** argv)
 
 
 	//uniform
-	glm::mat4 transform = glm::mat4(1.0f);
-	program.SetUniform("transform", transform);
+	glm::mat4 model = glm::mat4(1.0f);
+
 
 	glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800 / 600.0f, 0.01f, 1000.0f);
-	glm::mat4 view = glm::lookAt(glm::vec3(0,2,-5), glm::vec3(0,0,0), glm::vec3(0,1,0));
+
+	glm::vec3 eye{0, 0, 5};
+	glm::mat4 view = glm::lookAt(eye, glm::vec3(0,0,0), glm::vec3(0,1,0));
 
 	nc::Texture texture;
 	texture.CreateTexture("Textures\\llama.jpg");
@@ -127,22 +128,54 @@ int main(int argc, char** argv)
 		}
 
 		SDL_PumpEvents();
+		engine.Update();
 
-		transform = glm::rotate(transform, 0.04f, glm::vec3(0,1,0));
+		float angle = 0.0f;
+		if (engine.GetSystem<nc::InputSystem>()->GetButtonState(SDL_SCANCODE_E) == nc::InputSystem::eButtonState::HELD) {
+			angle = 2.0f;
+		}
 
-		glm::mat4 mvp = projection * view * transform;
+		if (engine.GetSystem<nc::InputSystem>()->GetButtonState(SDL_SCANCODE_Q) == nc::InputSystem::eButtonState::HELD) {
+			angle = -2.0f;
+		}
+
+
+		model = glm::rotate(model, angle * engine.GetTimer().DeltaTime(), glm::vec3(0, 1, 0));
+
+
+		if (engine.GetSystem<nc::InputSystem>()->GetButtonState(SDL_SCANCODE_A) == nc::InputSystem::eButtonState::HELD) {
+			eye.x -= 4 * engine.GetTimer().DeltaTime();
+		}
+
+		if (engine.GetSystem<nc::InputSystem>()->GetButtonState(SDL_SCANCODE_D) == nc::InputSystem::eButtonState::HELD) {
+			eye.x += 4 * engine.GetTimer().DeltaTime();
+		}
+
+		if (engine.GetSystem<nc::InputSystem>()->GetButtonState(SDL_SCANCODE_W) == nc::InputSystem::eButtonState::HELD) {
+			eye.z -= 4 * engine.GetTimer().DeltaTime();
+		}
+
+		if (engine.GetSystem<nc::InputSystem>()->GetButtonState(SDL_SCANCODE_S) == nc::InputSystem::eButtonState::HELD) {
+			eye.z += 4 * engine.GetTimer().DeltaTime();
+		}
+
+		view = glm::lookAt(eye, eye + glm::vec3{ 0, 0, -1 }, glm::vec3(0, 1, 0));
+
+		glm::mat4 mvp = projection * view * model;
 		program.SetUniform("transform", mvp);
 
 
-		renderer.BeginFrame();
+		engine.GetSystem<nc::Renderer>()->BeginFrame();
 
 		// render triangle
 		//glDrawArrays(GL_TRIANGLES, 0, 3);
 		GLsizei numElements = sizeof(indices) / sizeof(GLushort);
 		glDrawElements(GL_TRIANGLES, numElements, GL_UNSIGNED_SHORT, 0);
 
-		renderer.EndFrame();
+		engine.GetSystem<nc::Renderer>()->EndFrame();
 	}
+
+	engine.Shutdown();
 
 	return 0;
 }
